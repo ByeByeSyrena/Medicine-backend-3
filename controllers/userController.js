@@ -45,7 +45,7 @@ const loginUser = async (req, res) => {
       );
       result.password = undefined;
 
-      res.cookie("token", token).json({ result });
+      res.cookie("token", token).json(result);
     }
   );
 };
