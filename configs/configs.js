@@ -4,7 +4,7 @@ const configs = {
   port: process.env.PORT ? +process.env.PORT : 3000,
   environment: process.env.NODE_ENV ?? "development",
   jwtSecretKey: process.env.JWT_SECRET_KEY,
-  tokenSecretKey: process.env.TOKEN_HEADER_KEY,
+  refreshSecretKey: process.env.TOKEN_HEADER_KEY,
 };
 
 module.exports = configs;

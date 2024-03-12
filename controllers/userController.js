@@ -2,7 +2,7 @@ const { ctrlWrapper, httpError } = require("../helpers");
 const { User } = require("../models");
 // const { v4: uuidv4 } = require("uuid");
 const jwt = require("jsonwebtoken");
-const { jwtSecretKey } = require("../configs/configs");
+const { jwtSecretKey, refreshSecretKey } = require("../configs/configs");
 
 const createUser = async (req, res) => {
   const { email, password, name } = req.body;
@@ -31,26 +31,68 @@ const loginUser = async (req, res) => {
 
   const { _id } = user;
 
-  jwt.sign(
-    { email: user.email, id: user._id, name: user.name },
+  const accessToken = jwt.sign(
+    {
+      email: user.email,
+      id: user._id,
+      name: user.name,
+    },
     jwtSecretKey,
-    { expiresIn: "1h" },
-    async (err, token) => {
-      if (err) throw httpError(400, "Authorization failed");
-
-      const result = await User.findByIdAndUpdate(
-        _id,
-        { token },
-        { new: true }
-      );
-      result.password = undefined;
-
-      res.cookie("token", token).json(result);
-    }
+    { expiresIn: "10m" }
   );
+
+  const refreshToken = jwt.sign(
+    {
+      email: user.email,
+    },
+    refreshSecretKey,
+    { expiresIn: "1d" }
+  );
+
+  await User.findByIdAndUpdate(_id, { token: accessToken }, { new: true });
+
+  res.cookie("jwt", refreshToken, {
+    httpOnly: true,
+    sameSite: "None",
+    secure: true,
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+
+  return res.json(user);
+};
+
+const refreshUser = async (req, res) => {
+  if (req.cookies?.jwt) {
+    const refreshToken = req.cookies.jwt;
+
+    jwt.verify(refreshToken, refreshSecretKey, (err, decoded) => {
+      if (err) {
+        throw httpError(406, "Unauthorized");
+      } else {
+        const accessToken = jwt.sign(
+          {
+            email: decoded.email,
+            id: decoded.id,
+            name: decoded.name,
+          },
+          jwtSecretKey,
+          { expiresIn: "10m" }
+        );
+        return res.json({ accessToken });
+      }
+    });
+  }
+};
+
+const getCurrentUser = async (req, res) => {
+  const { email, name } = req.user;
+
+  res.json({ email, name });
 };
 
 module.exports = {
   createUser: ctrlWrapper(createUser),
   loginUser: ctrlWrapper(loginUser),
+  refreshUser: ctrlWrapper(refreshUser),
+  getCurrentUser: ctrlWrapper(getCurrentUser),
 };
