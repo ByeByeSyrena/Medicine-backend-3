@@ -1,6 +1,5 @@
 const { ctrlWrapper, httpError } = require("../helpers");
 const { User } = require("../models");
-// const { v4: uuidv4 } = require("uuid");
 const jwt = require("jsonwebtoken");
 const { jwtSecretKey, refreshSecretKey } = require("../configs/configs");
 
@@ -49,7 +48,13 @@ const loginUser = async (req, res) => {
     { expiresIn: "1d" }
   );
 
-  await User.findByIdAndUpdate(_id, { token: accessToken }, { new: true });
+  const result = await User.findByIdAndUpdate(
+    _id,
+    { token: refreshToken },
+    { new: true }
+  );
+
+  result.password = undefined;
 
   res.cookie("jwt", refreshToken, {
     httpOnly: true,
@@ -58,7 +63,12 @@ const loginUser = async (req, res) => {
     maxAge: 24 * 60 * 60 * 1000,
   });
 
-  return res.json(user);
+  return res.json({
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    accessToken: accessToken,
+  });
 };
 
 const refreshUser = async (req, res) => {
@@ -72,8 +82,6 @@ const refreshUser = async (req, res) => {
         const accessToken = jwt.sign(
           {
             email: decoded.email,
-            id: decoded.id,
-            name: decoded.name,
           },
           jwtSecretKey,
           { expiresIn: "10m" }
@@ -85,9 +93,38 @@ const refreshUser = async (req, res) => {
 };
 
 const getCurrentUser = async (req, res) => {
-  const { email, name } = req.user;
+  if (!req.cookies?.jwt) {
+    throw httpError(401, "No token provided");
+  }
 
-  res.json({ email, name });
+  const refreshToken = req.cookies.jwt;
+  const decoded = jwt.verify(refreshToken, refreshSecretKey);
+  const user = await User.findOne({ email: decoded.email });
+
+  if (!user) {
+    throw httpError(404, "User not found");
+  }
+
+  res.json({
+    name: user.name,
+    email: user.email,
+  });
+};
+
+const logoutUser = async (req, res) => {
+  const refreshToken = req.cookies.jwt;
+  if (!refreshToken) throw httpError(401, "No refresh token provided");
+  const decoded = jwt.verify(refreshToken, refreshSecretKey);
+
+  res.clearCookie("jwt", {
+    httpOnly: true,
+    sameSite: "None",
+    secure: true,
+  });
+
+  await User.findOneAndUpdate({ email: decoded.email }, { token: null });
+
+  res.status(200).json({ message: "Logout successful" });
 };
 
 module.exports = {
@@ -95,4 +132,5 @@ module.exports = {
   loginUser: ctrlWrapper(loginUser),
   refreshUser: ctrlWrapper(refreshUser),
   getCurrentUser: ctrlWrapper(getCurrentUser),
+  logoutUser: ctrlWrapper(logoutUser),
 };

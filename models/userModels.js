@@ -32,7 +32,11 @@ const userSchema = new Schema(
     token: {
       type: String,
     },
-    verificationToken: {
+    isActivated: {
+      type: Boolean,
+      default: false,
+    },
+    activationLink: {
       type: String,
     },
   },

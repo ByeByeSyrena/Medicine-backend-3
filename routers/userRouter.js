@@ -4,8 +4,12 @@ const {
   loginUser,
   refreshUser,
   getCurrentUser,
+  logoutUser,
 } = require("../controllers");
-const { validateFields, validateToken } = require("../middlewares");
+const {
+  validateFields,
+  // validateToken
+} = require("../middlewares");
 const {
   createUserDataValidator,
   loginUserDataValidator,
@@ -17,8 +21,12 @@ router.post("/register", validateFields(createUserDataValidator), createUser);
 
 router.post("/login", validateFields(loginUserDataValidator), loginUser);
 
-router.post("/refresh", refreshUser);
+router.post("/logout", logoutUser);
 
-router.get("/current-user", validateToken, getCurrentUser);
+router.get("/refresh", refreshUser);
+
+router.get("/current", getCurrentUser);
+
+// router.get("/users", refreshUser);
 
 module.exports = router;
