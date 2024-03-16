@@ -8,9 +8,17 @@ const {
 
 const router = express.Router();
 
-router.post("/register", userController.createUser);
+router.post(
+  "/register",
+  validateFields(createUserDataValidator),
+  userController.createUser
+);
 
-router.post("/login", userController.loginUser);
+router.post(
+  "/login",
+  validateFields(loginUserDataValidator),
+  userController.loginUser
+);
 
 router.get("/logout", verifyJWT, userController.logoutUser);
 

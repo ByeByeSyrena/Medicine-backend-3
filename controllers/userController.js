@@ -125,7 +125,7 @@ const refreshUserToken = async (req, res) => {
         },
       },
       accessTokenKey,
-      { expiresIn: "10s" }
+      { expiresIn: "5m" }
     );
 
     const newRefreshToken = jwt.sign(
