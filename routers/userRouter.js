@@ -12,7 +12,7 @@ router.post("/register", userController.createUser);
 
 router.post("/login", userController.loginUser);
 
-router.post("/logout", verifyJWT, userController.logoutUser);
+router.get("/logout", verifyJWT, userController.logoutUser);
 
 router.get("/refresh", verifyJWT, userController.refreshUserToken);
 

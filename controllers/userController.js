@@ -45,7 +45,7 @@ const loginUser = async (req, res) => {
       { expiresIn: "5m" }
     );
     const newRefreshToken = jwt.sign(
-      { username: foundUser.name },
+      { name: foundUser.name },
       refreshTokenKey,
       { expiresIn: "1d" }
     );
@@ -113,7 +113,7 @@ const refreshUserToken = async (req, res) => {
       foundUser.refreshToken = [...newRefreshTokenArray];
       await foundUser.save();
     }
-    if (err || foundUser.username !== decoded.username)
+    if (err || foundUser.name !== decoded.name)
       return httpError(403, "You have no access");
 
     const roles = Object.values(foundUser.roles);
@@ -129,7 +129,7 @@ const refreshUserToken = async (req, res) => {
     );
 
     const newRefreshToken = jwt.sign(
-      { username: foundUser.username },
+      { name: foundUser.name },
       refreshTokenKey,
       { expiresIn: "1d" }
     );
@@ -148,14 +148,16 @@ const refreshUserToken = async (req, res) => {
 };
 
 const logoutUser = async (req, res) => {
+  // On client, also delete the accessToken
+
   const cookies = req.cookies;
-  if (!cookies?.jwt) return res.sendStatus(204).json({ message: "No content" });
+  if (!cookies?.jwt) return res.sendStatus(204);
   const refreshToken = cookies.jwt;
 
   const foundUser = await User.findOne({ refreshToken }).exec();
   if (!foundUser) {
     res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
-    return res.sendStatus(204).json({ message: "User not found" });
+    return res.sendStatus(204);
   }
 
   foundUser.refreshToken = foundUser.refreshToken.filter(
@@ -164,7 +166,7 @@ const logoutUser = async (req, res) => {
   await foundUser.save();
 
   res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
-  res.sendStatus(204).json({ message: "Logout successful" });
+  res.sendStatus(204);
 };
 
 module.exports = {
