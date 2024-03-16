@@ -9,6 +9,7 @@ mongoose.set("strictQuery", true);
 
 mongoose
   .connect(mongoUrl)
+  .then(console.log("Connected to MongoDB"))
   .then(
     app.listen(port, () => {
       console.log(`App listening on port ${port}!`);

@@ -1,15 +1,6 @@
 const express = require("express");
-const {
-  createUser,
-  loginUser,
-  refreshUser,
-  getCurrentUser,
-  logoutUser,
-} = require("../controllers");
-const {
-  validateFields,
-  // validateToken
-} = require("../middlewares");
+const userController = require("../controllers");
+const { validateFields, verifyJWT } = require("../middlewares");
 const {
   createUserDataValidator,
   loginUserDataValidator,
@@ -17,16 +8,12 @@ const {
 
 const router = express.Router();
 
-router.post("/register", validateFields(createUserDataValidator), createUser);
+router.post("/register", userController.createUser);
 
-router.post("/login", validateFields(loginUserDataValidator), loginUser);
+router.post("/login", userController.loginUser);
 
-router.post("/logout", logoutUser);
+router.post("/logout", verifyJWT, userController.logoutUser);
 
-router.get("/refresh", refreshUser);
-
-router.get("/current", getCurrentUser);
-
-// router.get("/users", refreshUser);
+router.get("/refresh", verifyJWT, userController.refreshUserToken);
 
 module.exports = router;

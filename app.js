@@ -7,24 +7,27 @@ require("dotenv").config();
 
 const app = express();
 
-// const test = require("./routers");
 const { configs } = require("./configs");
 const { URL_PREFIX } = require("./constants");
 const { globalErrorHandler } = require("./helpers");
 const { userRouter } = require("./routers");
 const { environment } = configs;
 const cookieParser = require("cookie-parser");
+const credentials = require("./middlewares/credentials");
+
 const { urlencoded } = require("express");
+const corsOptions = require("./configs/corsOptions");
 
 const formatsLogger = process.env.NODE_ENV === "development" ? "dev" : "short";
 
 if (environment === "development") {
   app.use(logger(formatsLogger));
 }
-app.use(cors());
+app.use(credentials);
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.urlencoded({ extended: false }));
+app.use(urlencoded({ extended: false }));
 
 // app.use(`${URL_PREFIX}/medicines`, medicineRouter);
 // app.use(`${URL_PREFIX}/pharmacies`, pharmaciesRouter);

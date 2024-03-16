@@ -1,13 +1,13 @@
 const { ctrlWrapper, httpError } = require("../helpers");
 const { User } = require("../models");
 const jwt = require("jsonwebtoken");
-const { jwtSecretKey, refreshSecretKey } = require("../configs/configs");
+const { accessTokenKey, refreshTokenKey } = require("../configs/configs");
 
 const createUser = async (req, res) => {
   const { email, password, name } = req.body;
 
   if (await User.exists({ email })) throw httpError(409, "Email in use");
-  if (!name) throw httpError(401, "Fill all the fields");
+  if (!name || !password) throw httpError(401, "Fill all the fields");
 
   const result = await User.create({
     name,
@@ -16,121 +16,160 @@ const createUser = async (req, res) => {
   });
 
   result.password = undefined;
-  res.status(201).json(result);
+  res.status(201).json({ user: result, message: "New user was created" });
 };
 
 const loginUser = async (req, res) => {
+  const cookies = req.cookies;
+
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) throw httpError(401, "Email or password is wrong");
+  const foundUser = await User.findOne({ email });
+  if (!foundUser || !password)
+    throw httpError(401, "Email or password is wrong");
 
-  const isEquel = await user.checkPassword(password, user.password);
-  if (!isEquel) throw httpError(401, "Email or password is wrong");
+  const isEqual = await foundUser.checkPassword(password, foundUser.password);
+  if (!isEqual) throw httpError(401, "Email or password is wrong");
 
-  const { _id } = user;
+  if (isEqual) {
+    const roles = Object.values(foundUser.roles).filter(Boolean);
 
-  const accessToken = jwt.sign(
-    {
-      email: user.email,
-      id: user._id,
-      name: user.name,
-    },
-    jwtSecretKey,
-    { expiresIn: "10m" }
-  );
+    const accessToken = jwt.sign(
+      {
+        UserInfo: {
+          name: foundUser.name,
+          roles: roles,
+        },
+      },
+      accessTokenKey,
+      { expiresIn: "5m" }
+    );
+    const newRefreshToken = jwt.sign(
+      { username: foundUser.name },
+      refreshTokenKey,
+      { expiresIn: "1d" }
+    );
 
-  const refreshToken = jwt.sign(
-    {
-      email: user.email,
-    },
-    refreshSecretKey,
-    { expiresIn: "1d" }
-  );
+    let newRefreshTokenArray = !cookies?.jwt
+      ? foundUser.refreshToken
+      : foundUser.refreshToken.filter((rt) => rt !== cookies.jwt);
 
-  const result = await User.findByIdAndUpdate(
-    _id,
-    { token: refreshToken },
-    { new: true }
-  );
+    if (cookies?.jwt) {
+      const refreshToken = cookies.jwt;
+      const foundToken = await User.findOne({ refreshToken }).exec();
 
-  result.password = undefined;
-
-  res.cookie("jwt", refreshToken, {
-    httpOnly: true,
-    sameSite: "None",
-    secure: true,
-    maxAge: 24 * 60 * 60 * 1000,
-  });
-
-  return res.json({
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    accessToken: accessToken,
-  });
-};
-
-const refreshUser = async (req, res) => {
-  if (req.cookies?.jwt) {
-    const refreshToken = req.cookies.jwt;
-
-    jwt.verify(refreshToken, refreshSecretKey, (err, decoded) => {
-      if (err) {
-        throw httpError(406, "Unauthorized");
-      } else {
-        const accessToken = jwt.sign(
-          {
-            email: decoded.email,
-          },
-          jwtSecretKey,
-          { expiresIn: "10m" }
-        );
-        return res.json({ accessToken });
+      if (!foundToken) {
+        console.log("attempted refresh token reuse at login!");
+        newRefreshTokenArray = [];
       }
+
+      res.clearCookie("jwt", {
+        httpOnly: true,
+        sameSite: "None",
+        secure: true,
+      });
+    }
+
+    foundUser.refreshToken = [...newRefreshTokenArray, newRefreshToken];
+    await foundUser.save();
+
+    res.cookie("jwt", newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 24 * 60 * 60 * 1000,
     });
+
+    res.json({ roles, accessToken });
   }
 };
 
-const getCurrentUser = async (req, res) => {
-  if (!req.cookies?.jwt) {
-    throw httpError(401, "No token provided");
+const refreshUserToken = async (req, res) => {
+  const cookies = req.cookies;
+  if (!cookies?.jwt) return res.sendStatus(401);
+  const refreshToken = cookies.jwt;
+  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
+
+  const foundUser = await User.findOne({ refreshToken }).exec();
+
+  if (!foundUser) {
+    jwt.verify(refreshToken, refreshTokenKey, async (err, decoded) => {
+      if (err) throw httpError(403, "You have no access");
+      const hackedUser = await User.findOne({
+        name: decoded.name,
+      }).exec();
+      hackedUser.refreshToken = [];
+      await hackedUser.save();
+    });
+    return httpError(403, "You have no access");
   }
 
-  const refreshToken = req.cookies.jwt;
-  const decoded = jwt.verify(refreshToken, refreshSecretKey);
-  const user = await User.findOne({ email: decoded.email });
+  const newRefreshTokenArray = foundUser.refreshToken.filter(
+    (rt) => rt !== refreshToken
+  );
 
-  if (!user) {
-    throw httpError(404, "User not found");
-  }
+  jwt.verify(refreshToken, refreshTokenKey, async (err, decoded) => {
+    if (err) {
+      foundUser.refreshToken = [...newRefreshTokenArray];
+      await foundUser.save();
+    }
+    if (err || foundUser.username !== decoded.username)
+      return httpError(403, "You have no access");
 
-  res.json({
-    name: user.name,
-    email: user.email,
+    const roles = Object.values(foundUser.roles);
+    const accessToken = jwt.sign(
+      {
+        UserInfo: {
+          name: decoded.name,
+          roles: roles,
+        },
+      },
+      accessTokenKey,
+      { expiresIn: "10s" }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { username: foundUser.username },
+      refreshTokenKey,
+      { expiresIn: "1d" }
+    );
+    foundUser.refreshToken = [...newRefreshTokenArray, newRefreshToken];
+    await foundUser.save();
+
+    res.cookie("jwt", newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.json({ roles, accessToken });
   });
 };
 
 const logoutUser = async (req, res) => {
-  const refreshToken = req.cookies.jwt;
-  if (!refreshToken) throw httpError(401, "No refresh token provided");
-  const decoded = jwt.verify(refreshToken, refreshSecretKey);
+  const cookies = req.cookies;
+  if (!cookies?.jwt) return res.sendStatus(204).json({ message: "No content" });
+  const refreshToken = cookies.jwt;
 
-  res.clearCookie("jwt", {
-    httpOnly: true,
-    sameSite: "None",
-    secure: true,
-  });
+  const foundUser = await User.findOne({ refreshToken }).exec();
+  if (!foundUser) {
+    res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
+    return res.sendStatus(204).json({ message: "User not found" });
+  }
 
-  await User.findOneAndUpdate({ email: decoded.email }, { token: null });
+  foundUser.refreshToken = foundUser.refreshToken.filter(
+    (rt) => rt !== refreshToken
+  );
+  await foundUser.save();
 
-  res.status(200).json({ message: "Logout successful" });
+  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
+  res.sendStatus(204).json({ message: "Logout successful" });
 };
 
 module.exports = {
   createUser: ctrlWrapper(createUser),
   loginUser: ctrlWrapper(loginUser),
-  refreshUser: ctrlWrapper(refreshUser),
-  getCurrentUser: ctrlWrapper(getCurrentUser),
+  refreshUserToken: ctrlWrapper(refreshUserToken),
   logoutUser: ctrlWrapper(logoutUser),
 };

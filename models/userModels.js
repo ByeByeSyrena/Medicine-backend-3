@@ -14,8 +14,8 @@ const userSchema = new Schema(
       unique: [true, "User with this email already exists"],
     },
     password: { type: String, required: true },
-    role: {
-      type: String,
+    roles: {
+      type: [String],
       enum: Object.values(userRolesEnum),
       default: userRolesEnum.USER,
     },
@@ -28,16 +28,11 @@ const userSchema = new Schema(
     seller: {
       type: Schema.Types.ObjectId,
       ref: "newPharmacy",
+      default: null, // Default value for seller (assuming it's a reference)
     },
-    token: {
-      type: String,
-    },
-    isActivated: {
-      type: Boolean,
-      default: false,
-    },
-    activationLink: {
-      type: String,
+    refreshToken: {
+      type: [String],
+      default: [], // Default value for refreshToken (an empty array)
     },
   },
   { versionKey: false, timestamps: true }

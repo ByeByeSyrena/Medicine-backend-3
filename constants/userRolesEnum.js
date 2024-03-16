@@ -1,7 +1,7 @@
 const userRolesEnum = {
-  ADMIN: "admin",
-  MODERATOR: "moderator",
-  USER: "user",
+  ADMIN: "2024",
+  MODERATOR: "2023",
+  USER: "2021",
 };
 
 module.exports = userRolesEnum;
