@@ -16,6 +16,7 @@ const createUserDataValidator = Joi.object({
   seller: Joi.string()
     .regex(/^[a-zA-Z0-9\s]*$/)
     .allow(null),
+  avatar: Joi.string(),
 });
 
 const loginUserDataValidator = Joi.object({

@@ -2,6 +2,7 @@ const { Schema, model } = require("mongoose");
 const handleMongooseError = require("../middlewares/handleMongooseError");
 const { userRolesEnum } = require("../constants");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 
 const userSchema = new Schema(
   {
@@ -34,11 +35,16 @@ const userSchema = new Schema(
       type: [String],
       default: [],
     },
+    avatar: { type: String },
   },
   { versionKey: false, timestamps: true }
 );
 
 userSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    const emailHash = crypto.createHash("md5").update(this.email).digest("hex");
+  }
+
   if (!this.isModified("password")) return next();
 
   this.password = await bcrypt.hash(this.password, 10);
