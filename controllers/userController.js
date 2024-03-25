@@ -29,7 +29,7 @@ const loginUser = async (req, res) => {
     throw httpError(401, "Email or password is wrong");
 
   const isEqual = await foundUser.checkPassword(password, foundUser.password);
-  if (!isEqual) throw httpError(401, "Email or password is wrong");
+  if (!isEqual) throw httpError(401, "Password does not match");
 
   if (isEqual) {
     const roles = Object.values(foundUser.roles).filter(Boolean);
@@ -42,7 +42,7 @@ const loginUser = async (req, res) => {
         },
       },
       accessTokenKey,
-      { expiresIn: "5m" }
+      { expiresIn: "5s" }
     );
     const newRefreshToken = jwt.sign(
       { name: foundUser.name },
@@ -61,6 +61,7 @@ const loginUser = async (req, res) => {
       if (!foundToken) {
         console.log("attempted refresh token reuse at login!");
         newRefreshTokenArray = [];
+        throw httpError(204, "Token was not found");
       }
 
       res.clearCookie("jwt", {
@@ -80,7 +81,15 @@ const loginUser = async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    res.json({ roles, accessToken });
+    foundUser.password = undefined;
+    foundUser.refreshToken = undefined;
+
+    const sendData = {
+      foundUser,
+      accessToken: accessToken,
+    };
+
+    res.json(sendData);
   }
 };
 
@@ -94,14 +103,14 @@ const refreshUserToken = async (req, res) => {
 
   if (!foundUser) {
     jwt.verify(refreshToken, refreshTokenKey, async (err, decoded) => {
-      if (err) throw httpError(403, "You have no access");
+      if (err) throw httpError(403, "Unsuccessful decoding, error");
       const hackedUser = await User.findOne({
         name: decoded.name,
       }).exec();
       hackedUser.refreshToken = [];
       await hackedUser.save();
     });
-    return httpError(403, "You have no access");
+    return httpError(403, "User was not found after decoding");
   }
 
   const newRefreshTokenArray = foundUser.refreshToken.filter(
@@ -114,18 +123,18 @@ const refreshUserToken = async (req, res) => {
       await foundUser.save();
     }
     if (err || foundUser.name !== decoded.name)
-      return httpError(403, "You have no access");
+      return httpError(403, "User name is not equal saved name");
 
     const roles = Object.values(foundUser.roles);
     const accessToken = jwt.sign(
       {
         UserInfo: {
-          name: decoded.name,
+          name: foundUser.name,
           roles: roles,
         },
       },
       accessTokenKey,
-      { expiresIn: "5m" }
+      { expiresIn: "5s" }
     );
 
     const newRefreshToken = jwt.sign(
@@ -143,13 +152,14 @@ const refreshUserToken = async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    res.json({ roles, accessToken });
+    foundUser.refreshToken = undefined;
+    foundUser.password = undefined;
+
+    res.json({ accessToken, foundUser });
   });
 };
 
 const logoutUser = async (req, res) => {
-  // On client, also delete the accessToken
-
   const cookies = req.cookies;
   if (!cookies?.jwt) return res.sendStatus(204);
   const refreshToken = cookies.jwt;

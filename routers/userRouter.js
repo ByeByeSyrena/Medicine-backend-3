@@ -20,8 +20,8 @@ router.post(
   userController.loginUser
 );
 
-router.get("/logout", verifyJWT, userController.logoutUser);
+router.get("/logout", userController.logoutUser);
 
-router.get("/refresh", verifyJWT, userController.refreshUserToken);
+router.get("/refresh", userController.refreshUserToken);
 
 module.exports = router;

@@ -28,11 +28,11 @@ const userSchema = new Schema(
     seller: {
       type: Schema.Types.ObjectId,
       ref: "newPharmacy",
-      default: null, // Default value for seller (assuming it's a reference)
+      default: null,
     },
     refreshToken: {
       type: [String],
-      default: [], // Default value for refreshToken (an empty array)
+      default: [],
     },
   },
   { versionKey: false, timestamps: true }
