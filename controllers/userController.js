@@ -1,6 +1,8 @@
 const { ctrlWrapper, httpError } = require("../helpers");
 const { User } = require("../models");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+
 const { accessTokenKey, refreshTokenKey } = require("../configs/configs");
 
 const createUser = async (req, res) => {
@@ -42,7 +44,7 @@ const loginUser = async (req, res) => {
         },
       },
       accessTokenKey,
-      { expiresIn: "5s" }
+      { expiresIn: "30m" }
     );
     const newRefreshToken = jwt.sign(
       { name: foundUser.name },
@@ -179,9 +181,76 @@ const logoutUser = async (req, res) => {
   res.sendStatus(204);
 };
 
+const updateUser = async (req, res) => {
+  const { id } = req.params;
+  let { body } = req;
+
+  if (body.password) {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(body.password, salt);
+    body.password = hashedPassword;
+  }
+
+  try {
+    const updatedUser = await User.findOneAndUpdate({ _id: id }, body, {
+      new: true,
+    });
+    if (!updatedUser) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    const roles = Object.values(updatedUser.roles).filter(Boolean);
+    const accessToken = jwt.sign(
+      { UserInfo: { name: updatedUser.name, roles: roles } },
+      accessTokenKey,
+      { expiresIn: "30m" }
+    );
+    const newRefreshToken = jwt.sign(
+      { name: updatedUser.name },
+      refreshTokenKey,
+      { expiresIn: "1d" }
+    );
+
+    let newRefreshTokenArray = updatedUser.refreshToken;
+    if (req.cookies?.jwt) {
+      const refreshToken = req.cookies.jwt;
+      newRefreshTokenArray = newRefreshTokenArray.filter(
+        (rt) => rt !== refreshToken
+      );
+      res.clearCookie("jwt", {
+        httpOnly: true,
+        sameSite: "None",
+        secure: true,
+      });
+    }
+
+    updatedUser.refreshToken = [...newRefreshTokenArray, newRefreshToken];
+    await updatedUser.save();
+
+    res.cookie("jwt", newRefreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      accessToken,
+      name: updatedUser.name,
+      roles: updatedUser.roles,
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res
+      .status(500)
+      .send({ message: "An error occurred while updating the user." });
+  }
+};
+
 module.exports = {
   createUser: ctrlWrapper(createUser),
   loginUser: ctrlWrapper(loginUser),
   refreshUserToken: ctrlWrapper(refreshUserToken),
   logoutUser: ctrlWrapper(logoutUser),
+  updateUser: ctrlWrapper(updateUser),
 };

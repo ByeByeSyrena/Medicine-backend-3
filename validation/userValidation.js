@@ -34,6 +34,7 @@ const updateUserDataValidator = Joi.object({
   name: Joi.string().min(3).max(30),
   roles: Joi.string().valid(...Object.values(userRolesEnum)),
   favorites: Joi.array().items(Joi.string()),
+  password: Joi.string().regex(PSWRD_REGEX),
 });
 
 module.exports = {
