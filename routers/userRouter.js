@@ -28,6 +28,8 @@ router.patch(
   userController.updateUser
 );
 
+router.delete("/:id", isValidId, userController.deleteUser);
+
 router.get("/logout", userController.logoutUser);
 
 router.get("/refresh", userController.refreshUserToken);

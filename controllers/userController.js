@@ -44,7 +44,7 @@ const updateUser = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   await deleteUserOperation(req, res);
-  res.sendStatus(204);
+  res.sendStatus(200);
 };
 
 module.exports = {

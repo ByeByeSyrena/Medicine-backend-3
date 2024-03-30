@@ -139,7 +139,17 @@ const updateUserOperation = async (req, res) => {
   return { updatedUser, accessToken };
 };
 
-const deleteUserOperation = async (req, res) => {};
+const deleteUserOperation = async (req, res) => {
+  const { id } = req.params;
+
+  const result = await User.findOneAndDelete({ _id: id });
+
+  if (!result) throw httpError(404, "User not found");
+
+  clearRefreshTokenCookie(res);
+
+  return result;
+};
 
 module.exports = {
   createUserInDB,
