@@ -13,8 +13,8 @@ const {
 } = require("../services/userServices/userOperations");
 
 const createUser = async (req, res) => {
-  const result = await createUserInDB(req.body);
-  res.status(201).json(result);
+  await createUserInDB(req.body);
+  res.status(201).json({ message: "User created" });
 };
 
 const loginUser = async (req, res) => {

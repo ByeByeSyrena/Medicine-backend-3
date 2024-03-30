@@ -106,6 +106,8 @@ const rewriteUpdatedUserTokens = async (user, refreshTokenCookie, res) => {
 
   newRefreshTokenArray.push(newRefreshToken);
 
+  setRefreshTokenCookie(res, newRefreshToken);
+
   return { accessToken, newRefreshTokenArray };
 };
 
