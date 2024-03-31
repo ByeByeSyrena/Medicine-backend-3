@@ -16,6 +16,8 @@ const {
   clearRefreshTokenCookie,
 } = require("./tokenAndCookieServices/cookieUtils");
 
+const { createPharmacyInDB } = require("./pharmaceServices/pharmacyOperations");
+
 module.exports = {
   createUserInDB,
   loginUserOperation,
@@ -27,4 +29,5 @@ module.exports = {
   refreshUserTokensOperation,
   logoutUserOperation,
   updateUserOperation,
+  createPharmacyInDB,
 };

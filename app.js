@@ -10,7 +10,7 @@ const app = express();
 const { configs } = require("./configs");
 const { URL_PREFIX } = require("./constants");
 const { globalErrorHandler } = require("./helpers");
-const { userRouter } = require("./routers");
+const { userRouter, pharmacyRouter } = require("./routers");
 const { environment } = configs;
 const cookieParser = require("cookie-parser");
 const credentials = require("./middlewares/credentials");
@@ -30,7 +30,7 @@ app.use(cookieParser());
 app.use(urlencoded({ extended: false }));
 
 // app.use(`${URL_PREFIX}/medicines`, medicineRouter);
-// app.use(`${URL_PREFIX}/pharmacies`, pharmaciesRouter);
+app.use(`${URL_PREFIX}/pharmacies`, pharmacyRouter);
 // app.use(`${URL_PREFIX}/orders`, ordersRouter);
 app.use(`${URL_PREFIX}/users`, userRouter);
 
