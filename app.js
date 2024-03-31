@@ -24,7 +24,7 @@ if (environment === "development") {
   app.use(logger(formatsLogger));
 }
 app.use(credentials);
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 app.use(urlencoded({ extended: false }));
