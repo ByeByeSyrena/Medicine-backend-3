@@ -16,10 +16,14 @@ const pharmacySchema = new Schema(
       unique: [true, "User with this email already exists"],
     },
     password: { type: String, required: true },
-    role: {
-      type: String,
+    roles: {
+      type: [String],
       enum: Object.values(userRolesEnum),
       default: userRolesEnum.ADMIN,
+    },
+    refreshToken: {
+      type: [String],
+      default: [],
     },
   },
   { versionKey: false, timestamps: true }
